@@ -1,107 +1,166 @@
-// /home/christian/gpt-quiz-app/client/src/context/AuthContext.jsx
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios'; // Needed for fetching user data based on token
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
-// 1. Create the Context
+// --- Axios Instance Setup ---
+// Create an Axios instance (recommended)
+export const apiClient = axios.create({ // <-- Export apiClient as named export
+  baseURL: '/api', // Your API base URL
+});
+
+// Add a request interceptor to attach the token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+      // console.log('Interceptor: Attaching token'); // Less verbose log
+    } else {
+      // console.log('Interceptor: No token found.');
+    }
+    return config;
+  },
+  (error) => {
+    console.error('Axios Request Interceptor Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// --- React Context Definition ---
 const AuthContext = createContext(null);
 
-// Helper function to get token from localStorage
-const getToken = () => localStorage.getItem('authToken');
+// --- AuthProvider Component ---
+export const AuthProvider = ({ children }) => { // <-- Export AuthProvider
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(null); // Optional: Store user info
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+  const [isLoading, setIsLoading] = useState(true); // Start loading until checked
+  const navigate = useNavigate(); // Hook for navigation
 
-// 2. Create the Provider Component
-export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(getToken()); // Initialize token from localStorage
-  const [user, setUser] = useState(null); // Store user details (id, username, email)
-  const [isLoading, setIsLoading] = useState(true); // Track initial auth check loading state
+  // Function to check auth status (e.g., verify token with backend)
+  const checkAuthStatus = useCallback(async () => {
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) {
+      setIsLoggedIn(false);
+      setToken(null);
+      setUser(null);
+      setIsLoading(false);
+      console.log("AuthContext: No token found, setting logged out.");
+      return;
+    }
 
-  // --- Effect to check token validity or fetch user data on load/token change ---
+    console.log("AuthContext: Token found, verifying...");
+    try {
+      // Use the apiClient instance which automatically adds the token
+      // Make a request to a protected endpoint to verify the token
+      const response = await apiClient.get('/auth/me');
+      setUser(response.data.user); // Assuming backend returns user info
+      setToken(storedToken);
+      setIsLoggedIn(true);
+      console.log("AuthContext: Token verified successfully.");
+    } catch (error) {
+      console.error("AuthContext: Token verification failed:", error.response?.data?.message || error.message);
+      localStorage.removeItem('token'); // Remove invalid token
+      setToken(null);
+      setUser(null);
+      setIsLoggedIn(false);
+      // Optionally navigate to login if verification fails on load
+      // navigate('/login', { replace: true });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []); // No dependencies needed if navigate isn't used inside
+
+  // Check authentication status on initial load
   useEffect(() => {
-    const checkUser = async () => {
-      setIsLoading(true); // Start loading check
-      const storedToken = getToken();
+    console.log("AuthContext: Initializing - checking auth status...");
+    checkAuthStatus();
+  }, [checkAuthStatus]); // Run checkAuthStatus when it changes (only on mount due to useCallback)
 
-      if (storedToken) {
-        setToken(storedToken); // Ensure token state reflects localStorage initially
+  // Login function
+  const login = async (email, password) => {
+    try {
+      setIsLoading(true); // Indicate loading during login attempt
+      const response = await apiClient.post('/auth/login', { email, password });
+      const { token: newToken, user: loggedInUser } = response.data; // Adjust based on your API response
 
-        // --- OPTION B: Verify token/fetch user data from backend (ACTIVE) ---
-        // This is the recommended and more secure approach.
-        // It relies on the GET /api/auth/me endpoint created on the backend.
-        try {
-          // Send token to backend to get user data
-          const response = await axios.get('/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${storedToken}` }
-          });
-          // Assuming backend returns { user: { id, username, email, ... } } on success
-          setUser(response.data.user);
-          console.log("AuthContext: User data fetched successfully.", response.data.user);
-        } catch (error) {
-          console.error("AuthContext: Failed to fetch user data with token:", error.response?.data?.message || error.message);
-          // If token is invalid/expired, backend should return 401
-          if (error.response && error.response.status === 401) {
-            logout(); // Clear invalid/expired token using the logout function
-          } else {
-            // Handle other potential errors (e.g., server down) - maybe keep user logged out
-            setUser(null);
-            setToken(null);
-            localStorage.removeItem('authToken'); // Ensure token is cleared on other errors too
-          }
+      localStorage.setItem('token', newToken);
+      setToken(newToken);
+      setUser(loggedInUser); // Store user info
+      setIsLoggedIn(true);
+      console.log("AuthContext: Login successful.");
+      // Navigation should happen in App.jsx based on isLoggedIn state change
+      // navigate('/dashboard'); // Avoid navigation directly in context if possible
+    } catch (error) {
+      console.error("AuthContext: Login failed:", error);
+      // Clear any potential stale state
+      localStorage.removeItem('token');
+      setToken(null);
+      setUser(null);
+      setIsLoggedIn(false);
+      throw error; // Re-throw error so the Login component can handle it (e.g., show message)
+    } finally {
+      setIsLoading(false); // Stop loading indicator
+    }
+  };
+
+  // Logout function
+  const logout = useCallback(() => {
+    console.log("AuthContext: Logging out.");
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    setIsLoggedIn(false);
+    // Optional: Make API call to invalidate token on backend
+    // apiClient.post('/auth/logout').catch(err => console.error("Logout API call failed:", err));
+
+    // Navigation happens in App.jsx based on isLoggedIn state change
+    // navigate('/login', { replace: true }); // Avoid navigation directly in context
+  }, []); // No dependencies needed if navigate isn't used inside
+
+  // Add response interceptor for handling 401 globally *inside* the provider
+  // This ensures 'logout' is available in the interceptor's scope
+  useEffect(() => {
+    const responseInterceptor = apiClient.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response && error.response.status === 401 && isLoggedIn) { // Only logout if currently logged in
+          console.error("Axios Response Interceptor: Unauthorized (401)! Logging out.");
+          logout(); // Call the logout function from the context
         }
-        // --- End OPTION B ---
-
-      } else {
-        // No token found in localStorage
-        setToken(null);
-        setUser(null);
+        return Promise.reject(error);
       }
-      setIsLoading(false); // Finished initial check
+    );
+
+    // Cleanup interceptor on component unmount
+    return () => {
+      apiClient.interceptors.response.eject(responseInterceptor);
     };
+  }, [isLoggedIn, logout]); // Re-attach interceptor if isLoggedIn or logout changes
 
-    checkUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on initial mount to check localStorage
 
-  // --- Login Function ---
-  // Called by Login.jsx after successful API login
-  const login = (newToken, userData) => {
-    localStorage.setItem('authToken', newToken); // Store token
-    setToken(newToken); // Update state
-    setUser(userData); // Update user state
-    console.log("AuthContext: User logged in.", userData);
-  };
-
-  // --- Logout Function ---
-  // Called by App.jsx logout button or if token becomes invalid
-  const logout = () => {
-    localStorage.removeItem('authToken'); // Remove token
-    setToken(null); // Clear state
-    setUser(null); // Clear user state
-    console.log("AuthContext: User logged out");
-    // Navigation should be handled by the component calling logout if needed
-  };
-
-  // 3. Provide the context values
+  // Value provided by the context
   const value = {
     token,
     user,
-    isLoggedIn: !!user, // Boolean flag derived from user state
-    isLoading, // Provide loading status for initial auth check
+    isLoggedIn,
+    isLoading, // Provide loading state
     login,
     logout,
+    // apiClient, // You could provide apiClient here, but importing it directly is also fine
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 4. Create a custom hook for easy consumption
-export const useAuth = () => {
+// --- Custom Hook to use the Auth Context ---
+export const useAuth = () => { // <-- Export useAuth
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    // This error means you're trying to use the context outside of its provider
+  if (context === undefined || context === null) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
+
+// Default export is no longer needed or should be something else if required
+// export default apiClient; // REMOVE THIS or change if needed elsewhere as default

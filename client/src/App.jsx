@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
+import { Routes, Route, NavLink, useNavigate, Navigate } from "react-router-dom"; // Import Navigate
 import {
   LayoutDashboard,
   BookOpen,
   PencilLine,
   Timer,
-  User, // Keep for potential future Profile link
-  Settings, // Keep for potential future Settings link
-  LogIn, // Icon for Login
-  UserPlus, // Icon for Signup
-  LogOut, // Icon for Logout
-  ListChecks // Icon for My Attempts
+  User,
+  Settings,
+  LogIn,
+  UserPlus,
+  LogOut,
+  ListChecks
 } from "lucide-react";
-import { useAuth } from "./context/AuthContext"; // Import useAuth
+import { useAuth } from "./context/AuthContext";
 
 // Page Imports
 import Dashboard from "./pages/Dashboard";
@@ -24,23 +24,21 @@ import ViewQuiz from "./pages/ViewQuiz";
 import EditQuiz from "./pages/EditQuiz";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
-import MyAttempts from "./pages/MyAttempts"; // Import MyAttempts page
+import MyAttempts from "./pages/MyAttempts";
 
 // Component Imports
-import ProtectedRoute from "./components/ProtectedRoute"; // Import ProtectedRoute
-
-// index.css is minimal; all styling handled here with Tailwind.
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
   const collapseTimer = useRef(null);
-  const navigate = useNavigate(); // For potential navigation on logout
+  const navigate = useNavigate();
 
   // Use the Auth context
-  const { isLoggedIn, logout, isLoading: isAuthLoading } = useAuth(); // Get state and functions
+  const { isLoggedIn, logout, isLoading: isAuthLoading } = useAuth();
 
-  // Sidebar handlers
+  // Sidebar handlers (only relevant when logged in)
   const handleMouseEnter = () => {
     clearTimeout(collapseTimer.current);
     if (!sidebarOpen) {
@@ -60,7 +58,7 @@ function App() {
     return () => clearTimeout(collapseTimer.current);
   }, []);
 
-  // Styling constants
+  // Styling constants (only relevant when logged in)
   const mainContentMargin = sidebarOpen ? "14rem" : "4rem";
   const sidebarTextClass = `whitespace-nowrap overflow-hidden transition-[opacity,max-width,margin-left] duration-200 ease-in-out delay-100 ${sidebarOpen ? 'opacity-100 max-w-xs ml-3' : 'opacity-0 max-w-0 ml-0'}`;
   const sidebarTitleClass = `whitespace-nowrap overflow-hidden font-semibold text-3xl text-gray-600 transition-[opacity,max-width,margin-left] duration-200 ease-in-out delay-100 ${sidebarOpen ? 'opacity-100 max-w-xs ml-2' : 'opacity-0 max-w-0 ml-0'}`;
@@ -71,8 +69,8 @@ function App() {
 
   // Logout Handler
   const handleLogout = () => {
-     logout(); // Call the function from context
-     navigate('/login'); // Navigate to login after logout
+     logout();
+     // Navigation to /login happens automatically because isLoggedIn will become false
      console.log("User logged out via button");
   };
 
@@ -85,7 +83,21 @@ function App() {
       );
   }
 
+  // --- Conditional Rendering based on Login Status ---
 
+  if (!isLoggedIn) {
+    // --- RENDER ONLY LOGIN/SIGNUP ROUTES WHEN LOGGED OUT ---
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        {/* Redirect any other path to /login when logged out */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  // --- RENDER FULL LAYOUT WITH SIDEBAR WHEN LOGGED IN ---
   return (
     <div className="h-screen w-full flex bg-gray-100 overflow-hidden">
       {/* Sidebar */}
@@ -103,79 +115,55 @@ function App() {
             <span className={sidebarTitleClass}>QuizCraft</span>
           </div>
 
-          {/* Main Navigation */}
+          {/* Main Navigation (Only shown when logged in) */}
           <nav className="space-y-2">
-            {/* Public Link */}
             <NavLink to="/dashboard" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
               <LayoutDashboard size={20} className={sidebarIconClass} />
               <span className={sidebarTextClass}>Dashboard</span>
             </NavLink>
-            {/* Conditionally render links that require login */}
-            {isLoggedIn && (
-              <>
-                <NavLink to="/study" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
-                  <BookOpen size={20} className={sidebarIconClass} />
-                  <span className={sidebarTextClass}>Study</span>
-                </NavLink>
-                <NavLink to="/create-quiz" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
-                  <PencilLine size={20} className={sidebarIconClass} />
-                  <span className={sidebarTextClass}>Create Quiz</span>
-                </NavLink>
-                <NavLink to="/view-quizzes" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
-                  <BookOpen size={20} className={sidebarIconClass} />
-                  <span className={sidebarTextClass}>View Quizzes</span>
-                </NavLink>
-                <NavLink to="/timed-quizzes" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
-                  <Timer size={20} className={sidebarIconClass} />
-                  <span className={sidebarTextClass}>Timed Quizzes</span>
-                </NavLink>
-                {/* NavLink for My Attempts */}
-                <NavLink to="/my-attempts" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
-                  <ListChecks size={20} className={sidebarIconClass} />
-                  <span className={sidebarTextClass}>My Attempts</span>
-                </NavLink>
-              </>
-            )}
+            <NavLink to="/study" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
+              <BookOpen size={20} className={sidebarIconClass} />
+              <span className={sidebarTextClass}>Study</span>
+            </NavLink>
+            <NavLink to="/create-quiz" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
+              <PencilLine size={20} className={sidebarIconClass} />
+              <span className={sidebarTextClass}>Create Quiz</span>
+            </NavLink>
+            <NavLink to="/view-quizzes" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
+              <BookOpen size={20} className={sidebarIconClass} />
+              <span className={sidebarTextClass}>View Quizzes</span>
+            </NavLink>
+            <NavLink to="/timed-quizzes" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
+              <Timer size={20} className={sidebarIconClass} />
+              <span className={sidebarTextClass}>Timed Quizzes</span>
+            </NavLink>
+            <NavLink to="/my-attempts" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses}`}>
+              <ListChecks size={20} className={sidebarIconClass} />
+              <span className={sidebarTextClass}>My Attempts</span>
+            </NavLink>
           </nav>
         </div>
 
-        {/* Bottom Section (Auth & Settings) */}
+        {/* Bottom Section (Auth & Settings - Only Logout needed when logged in) */}
         <div className="flex flex-col gap-2 mt-8 border-t border-gray-200 pt-4 w-full">
-           {/* Use isLoggedIn from context for conditional rendering */}
-           {!isLoggedIn ? (
-             <>
-               <NavLink to="/login" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses} text-sm`}>
-                 <LogIn size={18} className={sidebarIconClass} />
-                 <span className={sidebarTextClass}>Login</span>
-               </NavLink>
-               <NavLink to="/signup" className={({ isActive }) => `${baseNavLinkClasses} ${isActive ? activeNavLinkClasses : inactiveNavLinkClasses} text-sm`}>
-                 <UserPlus size={18} className={sidebarIconClass} />
-                 <span className={sidebarTextClass}>Sign Up</span>
-               </NavLink>
-             </>
-           ) : (
-             <>
-               {/* Logout Button */}
-               <button onClick={handleLogout} className={`${baseNavLinkClasses} ${inactiveNavLinkClasses} text-sm w-full text-left`}>
-                 <LogOut size={18} className={sidebarIconClass} />
-                 <span className={sidebarTextClass}>Logout</span>
-               </button>
-             </>
-           )}
+           {/* Logout Button */}
+           <button onClick={handleLogout} className={`${baseNavLinkClasses} ${inactiveNavLinkClasses} text-sm w-full text-left`}>
+             <LogOut size={18} className={sidebarIconClass} />
+             <span className={sidebarTextClass}>Logout</span>
+           </button>
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* Main content (Only shown when logged in) */}
       <main
         className="flex-1 min-w-0 overflow-y-auto transition-[margin-left] duration-300 ease-in-out"
         style={{ marginLeft: mainContentMargin }}
       >
         <div className="p-6">
           <Routes>
-            {/* Public Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/" element={<Dashboard />} />
+            {/* Public Routes accessible when logged in (e.g., Dashboard) */}
+            {/* Redirect root path to dashboard when logged in */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
 
             {/* Protected Routes */}
@@ -186,11 +174,14 @@ function App() {
               <Route path="/view-quizzes" element={<ViewQuizzes />} />
               <Route path="/quiz/:id" element={<ViewQuiz />} />
               <Route path="/quiz/:id/edit" element={<EditQuiz />} />
-              {/* Route for My Attempts */}
               <Route path="/my-attempts" element={<MyAttempts />} />
             </Route>
 
-            {/* Optional: Add a catch-all or Not Found route */}
+            {/* Redirect logged-in users away from login/signup */}
+            <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/signup" element={<Navigate to="/dashboard" replace />} />
+
+            {/* Optional: Add a catch-all or Not Found route for logged-in state */}
             {/* <Route path="*" element={<NotFound />} /> */}
           </Routes>
         </div>
