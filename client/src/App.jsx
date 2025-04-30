@@ -50,7 +50,7 @@ function App() {
     clearTimeout(collapseTimer.current);
     collapseTimer.current = setTimeout(() => {
       setSidebarOpen(false);
-    }, 300);
+    }, 50); // Delay before collapsing sidebar
   };
 
   // Cleanup timer on unmount
@@ -110,7 +110,7 @@ function App() {
         {/* Top Section (Logo & Main Nav) */}
         <div className="flex flex-col gap-4 w-full">
           {/* Logo */}
-          <div className={`flex items-center mb-6 h-12`}>
+          <div className={`flex ml-1.5 items-center mb-6 h-12`}>
             <img src="/logo.png" alt="Logo" className={`transition-opacity ease-in-out duration-300 drop-shadow-md h-10 w-auto ${sidebarOpen ? "opacity-100" : "opacity-70"}`} />
             <span className={sidebarTitleClass}>QuizCraft</span>
           </div>

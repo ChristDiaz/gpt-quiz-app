@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, CheckCircle } from 'lucide-react';
 import PageHeader from '../components/PageHeader'; // Import the PageHeader component
 
 function ViewQuiz() {
@@ -120,7 +120,7 @@ function ViewQuiz() {
                           {String.fromCharCode(65 + i)}.
                         </span>
                         <span>{opt || <span className="italic text-gray-400">Empty Option</span>}</span>
-                        {isCorrect && <span className="ml-auto text-green-600 flex-shrink-0">✅</span>} {/* Moved checkmark */}
+                        {isCorrect && <CheckCircle className="ml-auto text-green-600 flex-shrink-0" />} {/* Moved checkmark */}
                       </div>
                     );
                   })
