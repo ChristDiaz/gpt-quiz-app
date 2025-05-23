@@ -3,19 +3,32 @@ const authRoutes = require('./routes/auth');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet'); // Import helmet
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/quizcraft';
 
 // Middleware
+app.use(helmet()); // Basic helmet protection
+
+// Configure specific security headers
+app.use(helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'"],
+    styleSrc: ["'self'"],
+    // Add other directives as needed, e.g., imgSrc, fontSrc
+  }
+}));
+app.use(helmet.xContentTypeOptions()); // Sets X-Content-Type-Options: nosniff
+app.use(helmet.xFrameOptions({ action: 'deny' })); // Sets X-Frame-Options: DENY
+
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (
-      origin.startsWith('http://localhost:') ||
-      origin.startsWith('http://192.168.64.2:')
-    ) {
+    if (!origin || origin === FRONTEND_URL) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS'));
