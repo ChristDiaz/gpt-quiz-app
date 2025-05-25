@@ -91,6 +91,38 @@ function CreateQuiz() {
       alert(`Error creating quiz: ${error.response?.data?.message || error.message}`);
     }
   };
+
+  const removeOption = (qIndex, oIndex) => {
+    const updatedQuestions = [...questions];
+    const questionToUpdate = { ...updatedQuestions[qIndex] };
+    const newOptions = [...(questionToUpdate.options || [])];
+    newOptions.splice(oIndex, 1);
+    questionToUpdate.options = newOptions;
+    updatedQuestions[qIndex] = questionToUpdate;
+    setQuestions(updatedQuestions);
+  };
+
+  const addOption = (qIndex) => {
+    const updatedQuestions = [...questions];
+    const questionToUpdate = { ...updatedQuestions[qIndex] };
+    const currentOptions = questionToUpdate.options || [];
+    if (currentOptions.length >= 6) {
+      alert('Maximum of 6 options allowed.');
+      return;
+    }
+    questionToUpdate.options = [...currentOptions, ''];
+    updatedQuestions[qIndex] = questionToUpdate;
+    setQuestions(updatedQuestions);
+
+    setTimeout(() => {
+      const optionInputs = document.querySelectorAll(`[data-options-for="question-${qIndex}"] input[type="text"]`);
+      const newInput = optionInputs[optionInputs.length - 1];
+      if (newInput) {
+        newInput.focus();
+      }
+    }, 50);
+  };
+
   // --- End Event Handlers ---
 
   // Define Tailwind animation for fade in/out using arbitrary variants
@@ -221,7 +253,7 @@ function CreateQuiz() {
             {(q.questionType === 'multiple-choice' || q.questionType === 'image-based') && (
               <div className="border-t border-gray-200 pt-4 mt-4 space-y-3">
                  <label className="block text-sm font-medium text-gray-700 mb-1">Options</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3" data-options-for={`question-${qIndex}`}>
                   {(q.options || []).map((opt, oIndex) => ( // Ensure options exists
                     <div key={oIndex}>
                       <label htmlFor={`q-${qIndex}-opt-${oIndex}`} className="block text-xs text-gray-600 mb-0.5">Option {oIndex + 1}</label>
@@ -233,8 +265,12 @@ function CreateQuiz() {
                         onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
                         required // Options are usually required for MC
                       />
+                      <button type="button" onClick={() => removeOption(qIndex, oIndex)} className={tertiaryLinkRedClasses + " mt-1"}>Remove Option</button>
                     </div>
                   ))}
+                  <div className="sm:col-span-2">
+                    <button type="button" onClick={() => addOption(qIndex)} className={secondaryButtonClasses}>+ Add Option</button>
+                  </div>
                 </div>
                  {/* Correct Answer Select for MC/Image */}
                  <div>
