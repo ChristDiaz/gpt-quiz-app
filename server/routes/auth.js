@@ -2,8 +2,10 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const User = require('../models/User'); // Import the User model
 const authMiddleware = require('../middleware/authMiddleware'); // 1. Import auth middleware
+const validateFields = require('../middleware/validateFields'); // Import validateFields
 
 const router = express.Router();
 
@@ -15,15 +17,25 @@ if (!JWT_SECRET) {
     // process.exit(1);
 }
 
+// Rate limiter for authentication routes
+const authLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10, // Limit each IP to 10 requests per windowMs
+    message: 'Too many requests from this IP, please try again after a minute',
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
 // --- POST /api/auth/signup ---
-router.post('/signup', async (req, res) => {
+router.post('/signup', authLimiter, validateFields(['username', 'email', 'password'], { username: 'string', email: 'string', password: 'string' }), async (req, res) => {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
-        return res.status(400).json({ message: 'Please provide username, email, and password.' });
-    }
-    if (password.length < 6) {
-         return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+    // Password policy validation
+    const passwordPolicyRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    if (!passwordPolicyRegex.test(password)) {
+        return res.status(400).json({ 
+            message: 'Password does not meet policy requirements. It must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character (e.g., !@#$%^&*).' 
+        });
     }
 
     try {
@@ -46,17 +58,15 @@ router.post('/signup', async (req, res) => {
              const messages = Object.values(error.errors).map(val => val.message);
              return res.status(400).json({ message: messages.join('. ') });
         }
-        res.status(500).json({ message: 'Server error during signup.' });
+        res.status(500).json({ message: 'An unexpected error occurred. Please try again later.' });
     }
 });
 
 // --- POST /api/auth/login ---
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, validateFields(['email', 'password'], { email: 'string', password: 'string' }), async (req, res) => {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Please provide email and password.' });
-    }
+    // Basic validation for presence is now handled by validateFields.
 
     try {
         // Find user by email. Use .select('+password') if password field has 'select: false' in schema
@@ -75,7 +85,7 @@ router.post('/login', async (req, res) => {
 
         if (!JWT_SECRET) {
              console.error("Login Error: JWT_SECRET is missing.");
-             return res.status(500).json({ message: 'Server configuration error.' });
+             return res.status(500).json({ message: 'An unexpected error occurred. Please try again later.' });
         }
 
         const payload = {
@@ -101,7 +111,7 @@ router.post('/login', async (req, res) => {
 
     } catch (error) {
         console.error("Login Error:", error);
-        res.status(500).json({ message: 'Server error during login.' });
+        res.status(500).json({ message: 'An unexpected error occurred. Please try again later.' });
     }
 });
 
@@ -125,7 +135,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
     } catch (error) {
         console.error("Get User (/me) Error:", error);
-        res.status(500).json({ message: 'Server error fetching user data.' });
+        res.status(500).json({ message: 'An unexpected error occurred. Please try again later.' });
     }
 });
 
